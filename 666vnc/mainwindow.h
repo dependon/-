@@ -14,8 +14,8 @@
 #include <QDebug>
 #include <QLineEdit>
 
-
-#define TRAN_SIZE 1024;
+#define DATA_FRAME_SIZE 1024
+#define TRAN_SIZE 1024
 struct ImageFrameHead
 {
     int funCode;                        //!功能码
@@ -37,33 +37,33 @@ public:
     ~MainWindow();
     void closeEvent(QCloseEvent *event)
    {
-    flag=0;
+    m_flag=0;
    }
 
 private slots:
     void chuanshu();
     void zanting()
     {
-        if(flag==1)
-            flag=0;
+        if(m_flag==1)
+            m_flag=0;
         else
-            flag=1;
+            m_flag=1;
     }
-    void duankou_file()
+    void m_host_file()
     {
-        flag=0;
+        m_flag=0;
        QString qtext = ed->text();
-        duankou=qtext.toInt();
-        qDebug()<<duankou;
+        m_host=qtext.toInt();
+        qDebug()<<m_host;
     }
 
 private:
-    QAction *bt;
+    QAction *m_bt;
     QUdpSocket *m_udpSocket;
-    int flag=1;
-    QAction *bt2;
-    QAction *bt3;
-    int duankou=65522;
+    int m_flag=1;
+    QAction *m_bt2;
+    QAction *m_bt3;
+    int m_host=65522;
     QLineEdit *ed;
     QTabWidget *tabw;
 

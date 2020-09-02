@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     fileToolBar->addAction(bt1);
 
     QStatusBar *stb =statusBar();
-    stb->addWidget(ed);
+//    stb->addWidget(ed);
 
 
 

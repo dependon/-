@@ -20,7 +20,7 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QScreen>
-#include <windows.h>
+//#include <windows.h>
 #include <QVBoxLayout>
 #include <QStatusBar>
 #include <QHBoxLayout>

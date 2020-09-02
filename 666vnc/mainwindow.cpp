@@ -6,11 +6,13 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QScreen>
-#include <windows.h>
+//#include <windows.h>
 #include <QVBoxLayout>
 #include <QStatusBar>
 #include <QHBoxLayout>
 #include <QGridLayout>
+#include <QThread>
+#include <QBuffer>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent)
@@ -33,22 +35,22 @@ MainWindow::MainWindow(QWidget *parent) :
     this->setWindowIcon(QIcon(":/start.png"));
 
     m_udpSocket = new QUdpSocket(this);
-    bt= new QAction("发送");
-    bt->setIcon(QIcon(":/start.png"));
-    bt->setShortcut(QKeySequence("F1"));
+    m_bt= new QAction("发送");
+    m_bt->setIcon(QIcon(":/start.png"));
+    m_bt->setShortcut(QKeySequence("F1"));
 
-    bt2= new QAction("暂停/继续");
-    bt2->setIcon(QIcon(":/pause.png"));
-    bt2->setShortcut(QKeySequence("F2"));
+    m_bt2= new QAction("暂停/继续");
+    m_bt2->setIcon(QIcon(":/pause.png"));
+    m_bt2->setShortcut(QKeySequence("F2"));
 
-    bt3= new QAction("发送端口更改");
-    bt3->setIcon(QIcon(":/port_parrellel.png"));
-    bt3->setShortcut(QKeySequence("F3"));
+    m_bt3= new QAction("发送端口更改");
+    m_bt3->setIcon(QIcon(":/port_parrellel.png"));
+    m_bt3->setShortcut(QKeySequence("F3"));
 
     QToolBar *fileToolBar = addToolBar(tr("功能区域"));
-    fileToolBar->addAction(bt);
-    fileToolBar->addAction(bt2);
-    fileToolBar->addAction(bt3);
+    fileToolBar->addAction(m_bt);
+    fileToolBar->addAction(m_bt2);
+    fileToolBar->addAction(m_bt3);
     ed=new QLineEdit("65522");
     //QVBoxLayout *vbox = new QVBoxLayout(this);
     this->setCentralWidget(ed);
@@ -63,9 +65,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     qDebug()<<"send";
-    connect(bt,SIGNAL(triggered(bool)),this,SLOT(chuanshu()));
-    connect(bt2,SIGNAL(triggered(bool)),this,SLOT(zanting()));
-    connect(bt3,SIGNAL(triggered(bool)),this,SLOT(duankou_file()));
+    connect(m_bt,SIGNAL(triggered(bool)),this,SLOT(chuanshu()));
+    connect(m_bt2,SIGNAL(triggered(bool)),this,SLOT(zanting()));
+    connect(m_bt3,SIGNAL(triggered(bool)),this,SLOT(m_host_file()));
 }
 MainWindow::~MainWindow()
 {
@@ -75,24 +77,22 @@ MainWindow::~MainWindow()
 void MainWindow::chuanshu()
 {
 
-     flag=1;
-    while(flag==1)
+     m_flag=1;
+    while(m_flag==1)
     {
-
-
-            /* QPixmap result = QPixmap();
-        result = QPixmap::grabWindow(QApplication::desktop()->winId(), 0, 0, 1920, 1080); //抓取当前屏幕的图片
-        result.save("1.png");*/
         QDesktopWidget *desk = QApplication::desktop();
         QScreen  *screen = QGuiApplication::primaryScreen();
         QPixmap p = screen->grabWindow(desk->winId());
+# if 0
         p.save("1.png");
-        //Sleep(100);
+
         QFile file("1.png");
         if (!file.open(QIODevice::ReadOnly))
             return;
+//         qDebug()<<bytes;
         char *m_sendBuf = new char[1024];
         int size = file.size();
+
         int num = 0;
         int count = 0;
         int endSize = size%996;
@@ -121,7 +121,7 @@ void MainWindow::chuanshu()
             mes.uDataInFrameOffset = count*(1024 - sizeof(ImageFrameHead));
             file.read(m_sendBuf+sizeof(ImageFrameHead), 1024-sizeof(ImageFrameHead));
             memcpy(m_sendBuf, (char *)&mes, sizeof(ImageFrameHead));
-            m_udpSocket->writeDatagram(m_sendBuf, mes.uTransFrameSize+mes.uTransFrameHdrSize, QHostAddress("255.255.255.255"), duankou);
+            m_udpSocket->writeDatagram(m_sendBuf, mes.uTransFrameSize+mes.uTransFrameHdrSize, QHostAddress("255.255.255.255"), m_host);
             QTime dieTime = QTime::currentTime().addMSecs(1);
             while( QTime::currentTime() < dieTime )
                 QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
@@ -132,8 +132,58 @@ void MainWindow::chuanshu()
         while( QTime::currentTime() < dieTime )
             QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         qDebug("ok");
-        Sleep(200);
+        QThread::msleep(500);
+#else
+                QByteArray bytes;
+                QBuffer buff(&bytes);
+                buff.open(QIODevice::ReadWrite);
+                p.save(&buff,"PNG");
+                QByteArray sendBuff;
 
+                sendBuff.resize(DATA_FRAME_SIZE);
+                char *m_sendBuf = new char[1024];
+                int size = buff.size();
+                int num = 0;
+                int count = 0;
+                int endSize = size%996;
+                if (endSize == 0) {
+                    num = size/996;
+                }
+                else {
+                    num = size/996+1;
+                }
+                while (count < num) {
+                    memset(m_sendBuf, 0, 1024);
+                    ImageFrameHead mes;
+                    mes.funCode = 24;
+                    mes.uTransFrameHdrSize = sizeof(ImageFrameHead);
+                    if ((count+1) != num) {
+                        mes.uTransFrameSize = 996;
+                    }
+                    else {
+                        mes.uTransFrameSize = endSize;
+                    }
+                    qDebug()<<size;
+                    qDebug()<<mes.uTransFrameHdrSize;
+                    mes.uDataFrameSize = size;
+                    mes.uDataFrameTotal = num;
+                    mes.uDataFrameCurr = count+1;
+                    mes.uDataInFrameOffset = count*(1024 - sizeof(ImageFrameHead));
+                    memcpy(sendBuff.data()+sizeof(ImageFrameHead), (bytes.data()+mes.uDataInFrameOffset), DATA_FRAME_SIZE - sizeof(ImageFrameHead));
+                    memcpy(sendBuff.data(), (char *)&mes, sizeof(ImageFrameHead));
+                    m_udpSocket->writeDatagram(sendBuff, mes.uTransFrameSize+mes.uTransFrameHdrSize, QHostAddress("255.255.255.255"), m_host);
+                    QTime dieTime = QTime::currentTime().addMSecs(1);
+                    while( QTime::currentTime() < dieTime )
+                        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+                    count++;
+                }
+                buff.close();
+                QTime dieTime = QTime::currentTime().addMSecs(200);
+                while( QTime::currentTime() < dieTime )
+                    QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+                qDebug("ok");
+                QThread::msleep(50);
+#endif
     }
 
 }
